@@ -237,13 +237,13 @@ def main():
         # stderr output to users while suppressing stdout, so sending this to
         # stderr will make users more likely to see it.
         print(
-            "DEPRECATED: building_map_model_downloader no longer needs to be "
-            "used by RMF map packages. You should remove it from your "
-            "CMakeLists.txt. We will skip running "
-            "building_map_model_downloader.",
+            "DEPRECATED: The arguments for building_map_model_downloader have "
+            "changed. If you are using it in the CMakeLists.txt of a map "
+            "package, then you can remove all the command line arguments for "
+            "it and run it a single time instead of running inside a foreach "
+            "loop.",
             file=sys.stderr
         )
-        return
     update_cache(args.cache, args.force)
 
 
