@@ -94,6 +94,7 @@ parser.add_argument(
     help="Deprecated argument - Do not use",
 )
 
+
 def load_cache(cache_file_path: str):
     """
     Read local Ignition Fuel model listing cache.
