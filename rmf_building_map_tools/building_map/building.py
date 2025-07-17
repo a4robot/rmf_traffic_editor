@@ -28,7 +28,8 @@ from .wgs84_transform import WGS84Transform
 
 
 class Building:
-    def __init__(self, data, data_format='yaml'):
+    def __init__(self, data, data_format='yaml', _print_handle = print):
+        self.print_handle = _print_handle
         if data_format == 'yaml':
             self.parse_yaml(data)
         elif data_format == 'geojson':
@@ -41,7 +42,7 @@ class Building:
             self.name = yaml_node['building_name']
         else:
             self.name = yaml_node['name']
-        print(f'building name: {self.name}')
+        self.print_handle(f'building name: {self.name}')
 
         self.params = {}
         if 'parameters' in yaml_node and yaml_node['parameters']:
@@ -54,7 +55,7 @@ class Building:
             self.map_version = None
 
         cs_name = yaml_node.get('coordinate_system', 'reference_image')
-        print(f'coordinate system: {cs_name}')
+        self.print_handle(f'coordinate system: {cs_name}')
         self.coordinate_system = CoordinateSystem[cs_name]
 
         self.global_transform = None
@@ -167,7 +168,7 @@ class Building:
         self.lifts = {}
 
         self.name = json_node.get('site_name', 'no_name')
-        print(f'name: {self.name}')
+        self.print_handle(f'name: {self.name}')
 
         if 'features' not in json_node:
             return
@@ -176,7 +177,7 @@ class Building:
 
         if 'preferred_crs' not in json_node:
             # todo: calculate based on UTM grid
-            print('CRS not specified. TODO: infer one.')
+            self.print_handle('CRS not specified. TODO: infer one.')
             return
 
         crs_name = json_node.get('preferred_crs', '')
@@ -212,10 +213,10 @@ class Building:
 
         self.transform_all_vertices()
         for level_name, level in self.levels.items():
-            print(f'level {level_name}:')
-            print(f'  bbox: {level.bbox}')
-            print(f'  {len(level.vertices)} vertices')
-            print(f'  {len(level.lanes)} lanes')
+            self.print_handle(f'level {level_name}:')
+            self.print_handle(f'  bbox: {level.bbox}')
+            self.print_handle(f'  {len(level.vertices)} vertices')
+            self.print_handle(f'  {len(level.lanes)} lanes')
 
     def parse_geojson_lane(self, feature, transformer):
         if 'geometry' not in feature:
@@ -317,7 +318,7 @@ class Building:
 
     def calculate_level_offsets_and_scales(self):
         # calculate all level offsets relative to reference_level_name
-        print(f'calculating levels relative to {self.reference_level_name}')
+        self.print_handle(f'calculating levels relative to {self.reference_level_name}')
 
         # first calculate scale of the reference level using its measurements
         self.ref_level.calculate_scale_using_measurements()
@@ -329,7 +330,7 @@ class Building:
             self.calculate_level_offset_and_scale(level_name)
 
     def calculate_level_offset_and_scale(self, level_name):
-        print(f'calculating level {level_name} offset and scale...')
+        self.print_handle(f'calculating level {level_name} offset and scale...')
         level = self.levels[level_name]
         # find which fiducials are in common between ref_level and level
         fiducials = []
@@ -337,14 +338,14 @@ class Building:
             for fiducial in level.fiducials:
                 if ref_fiducial.name == fiducial.name:
                     fiducials.append((ref_fiducial, fiducial))
-        print(f'  {len(fiducials)} common fiducials:')
+        self.print_handle(f'  {len(fiducials)} common fiducials:')
         level.transform.set_from_fiducials(
             fiducials,
             self.ref_level.transform.scale)
 
     def generate_nav_graphs(self):
         """ Returns a dict of all non-empty nav graphs """
-        print("generating nav data")
+        self.print_handle("generating nav data")
         nav_graphs = {}
         # at the moment, graphs are numbered 0..9
         # iterate through and generate any non-empty graphs
@@ -429,7 +430,7 @@ class Building:
 
         for lift_name, lift in self.lifts.items():
             if not lift.level_doors:
-                print(f'[{lift_name}] is not serving any floor, ignoring.')
+                self.print_handle(f'[{lift_name}] is not serving any floor, ignoring.')
                 continue
             lift.generate_shaft_doors(world)
             lift.generate_cabin(world)
@@ -555,13 +556,13 @@ class Building:
                     graph)
 
     def generate_navgraph_visualization(self, output_dir, name, level, graph):
-        print(f'generating {name}')
+        self.print_handle(f'generating {name}')
         meshes_path = f'{output_dir}/{name}/meshes'
         if not os.path.exists(meshes_path):
             os.makedirs(meshes_path)
         obj_path = f'{meshes_path}/{name}.obj'
 
-        print(f'  generating {obj_path}')
+        self.print_handle(f'  generating {obj_path}')
         with open(obj_path, 'w') as f:
             f.write('# The Great Editor v0.0.1\n')
             f.write(f'mtllib {name}.mtl\n')
@@ -619,7 +620,7 @@ class Building:
         alpha = 0.5
         mtl_path = f'{meshes_path}/{name}.mtl'
         texture_filename = 'arrows.png'
-        print(f'  generating {mtl_path}')
+        self.print_handle(f'  generating {mtl_path}')
         with open(mtl_path, 'w') as f:
             f.write('# The Great Editor v0.0.1\n')
             f.write(f'newmtl {name}\n')
@@ -655,7 +656,7 @@ class Building:
         indent_etree(config_ele)
         config_path = os.path.join(output_dir, name, 'model.config')
         config_tree.write(config_path, encoding='utf-8', xml_declaration=True)
-        print(f'  wrote {config_path}')
+        self.print_handle(f'  wrote {config_path}')
 
         sdf_ele = Element('sdf', {'version': '1.7'})
         sdf_model_ele = SubElement(sdf_ele, 'model', {'name': name})
@@ -680,7 +681,7 @@ class Building:
         indent_etree(sdf_ele)
         sdf_path = os.path.join(output_dir, name, 'model.sdf')
         sdf_tree.write(sdf_path, encoding='utf-8', xml_declaration=True)
-        print(f'  wrote {sdf_path}')
+        self.print_handle(f'  wrote {sdf_path}')
 
     def center(self):
         # todo: something smarter in the future. For now just the center
@@ -689,15 +690,15 @@ class Building:
 
     def add_lanes_from(self, other_building):
         # go through each level and try to add lanes from the other building
-        print(f'add_lanes_from()')
-        print(f'our levels: {list(self.levels.keys())}')
-        print(f'other levels: {list(other_building.levels.keys())}')
+        self.print_handle(f'add_lanes_from()')
+        self.print_handle(f'our levels: {list(self.levels.keys())}')
+        self.print_handle(f'other levels: {list(other_building.levels.keys())}')
         for level_name, level in self.levels.items():
             if level_name in other_building.levels.keys():
-                print(f'level {level_name} exists in both buildings')
+                self.print_handle(f'level {level_name} exists in both buildings')
                 level.add_lanes_from(other_building.levels[level_name])
             else:
-                print(f'WARNING: {level_name} does not exist in both')
+                self.print_handle(f'WARNING: {level_name} does not exist in both')
 
     def write_yaml_file(self, filename):
         with open(filename, 'w') as f:
@@ -719,13 +720,13 @@ class Building:
             yaml.dump(d, f)
 
     def generate_geopackage(self):
-        print('generating geopackage...')
+        self.print_handle('generating geopackage...')
         if self.coordinate_system != CoordinateSystem.cartesian_meters:
-            print('Not a Cartesian map; not generating GeoPackage.')
+            self.print_handle('Not a Cartesian map; not generating GeoPackage.')
             return []
 
         if 'generate_crs' not in self.params:
-            print('Map does not have CRS defined; not generating GeoPackage.')
+            self.print_handle('Map does not have CRS defined; not generating GeoPackage.')
             return []
 
         with tempfile.TemporaryDirectory() as tempdirname:
@@ -734,11 +735,11 @@ class Building:
             with open(gpkg_filename, 'rb') as f:
                 b = f.read()
 
-        print(f'GeoPackage is {len(b)} bytes')
+        self.print_handle(f'GeoPackage is {len(b)} bytes')
         return b
 
     def generate_geopackage_file(self, gpkg_filename):
-        print(f'generating GeoPackage in {gpkg_filename}')
+        self.print_handle(f'generating GeoPackage in {gpkg_filename}')
         edge_schema = {
             'geometry': 'LineString',
             'properties': [
@@ -767,7 +768,7 @@ class Building:
         }
 
         if 'generate_crs' not in self.params:
-            print(f'cannot generate GeoPackage: map does not declare a CRS')
+            self.print_handle(f'cannot generate GeoPackage: map does not declare a CRS')
             return
 
         proj_crs = CRS(self.params['generate_crs'].value)
@@ -820,7 +821,7 @@ class Building:
                 })
             # todo: add measurement edges
 
-        print(f'writing {len(all_vertices)} vertices...')
+        self.print_handle(f'writing {len(all_vertices)} vertices...')
         with fiona.open(gpkg_filename,
                         'w',
                         layer='vertices',
@@ -829,7 +830,7 @@ class Building:
                         schema=point_schema) as collection:
             collection.writerecords(all_vertices)
 
-        print(f'writing {len(all_edges)} edges...')
+        self.print_handle(f'writing {len(all_edges)} edges...')
         with fiona.open(gpkg_filename,
                         'w',
                         layer='edges',
@@ -862,13 +863,13 @@ class Building:
             with open(filename, 'w') as f:
                 json.dump(j, f, indent=2, sort_keys=True)
 
-        print(f'wrote {filename}')
+        self.print_handle(f'wrote {filename}')
 
     def generate_geojson(self):
-        print(f'generating GeoJSON...')
+        self.print_handle(f'generating GeoJSON...')
 
         if 'generate_crs' not in self.params:
-            print(f'cannot generate GeoJSON: map does not declare a CRS')
+            self.print_handle(f'cannot generate GeoJSON: map does not declare a CRS')
             return {}
 
         source_crs = self.params['generate_crs'].value
@@ -957,5 +958,5 @@ class Building:
         if 'suggested_offset_y' in self.params:
             j['suggested_offset_y'] = self.params['suggested_offset_y'].value
 
-        print(f'generated {len(features)} features...')
+        self.print_handle(f'generated {len(features)} features...')
         return j

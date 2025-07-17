@@ -6,6 +6,8 @@ import os
 import sys
 import yaml
 
+import typing
+
 from numpy import inf
 
 import rclpy
@@ -82,7 +84,7 @@ class BuildingMapServer(Node):
 
     def load_building_yaml(self, map_path):
         with open(map_path, 'r') as f:
-            building = Building(yaml.load(f, Loader=yaml.CLoader), 'yaml')
+            building = Building(yaml.load(f, Loader=yaml.CLoader), 'yaml', _print_handle = self.get_logger().info )
 
         self.create_map_msg(building)
 
@@ -143,10 +145,25 @@ class BuildingMapServer(Node):
         msg.elevation = level.elevation
         if level.drawing_name:
             image = AffineImage()
-            image_filename = level.drawing_name
+            image_filename : str = level.drawing_name
             image_path = os.path.join(self.map_dir, image_filename)
 
-            if os.path.exists(image_path):
+            image_yaml = image_filename.replace( ".png", ".yaml" )
+
+            if os.path.exists( image_yaml ):
+                self.get_logger().info( f'Use yaml instead : {image_yaml}' )
+                image_yaml_node : typing.Dict[ str, typing.Any ] = {}
+                with open( image_yaml ) as f:
+                    image_yaml_node = yaml.load( f, Loader = yaml.Loader)
+                    with open(image_path, 'rb') as image_file:
+                        image.data = image_file.read()
+                    self.get_logger().info(f'read {len(image.data)} byte image')
+                image.name = image_filename.split('.')[0]
+                image.encoding = image_filename.split('.')[-1]
+                image.scale = image_yaml_node[ "resolution" ]
+                image.x_offset, image.y_offset, image.yaw = image_yaml_node[ "origin" ]
+                msg.images.append( image )
+            elif os.path.exists(image_path):
                 self.get_logger().info(f'opening: {image_path}')
                 with open(image_path, 'rb') as image_file:
                     image.data = image_file.read()
